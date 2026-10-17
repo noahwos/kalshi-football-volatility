@@ -2,7 +2,7 @@
 
 **Historical research toolkit** to rank football games by *prospective intragame win-probability movement*, rather than by which team is more likely to win. **NFL and college football (CFB) use separate data pipelines, training sets, and fitted models.**
 
-> **Status:** Implemented and unit-tested with synthetic/local fixtures. Real nflverse ingestion and feature generation were smoke-tested on the 2024 season (49,492 normalized plays across 285 games). Authenticated CFBD ingestion, real-data model evaluation, backtest profitability, and Kalshi execution remain unvalidated. CFBD requires an API key and an integration smoke test. This is research software, not a trading system or an assurance of profitable trades.
+> **Status:** 27 tests pass. The NFL workflow was exercised on real 2023–2025 nflverse data: 147,928 normalized plays across 855 games, training on 2023–2024 with a 2025 holdout. Range prediction beat the mean baseline in that holdout; the toy trading proxy lost money. Authenticated CFBD ingestion and Kalshi execution remain unvalidated. CFBD requires an API key and an integration smoke test. See [validation results](docs/VALIDATION.md). This is research software, not a trading system or an assurance of profitable trades.
 
 ## What it does
 

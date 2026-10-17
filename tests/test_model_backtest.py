@@ -50,3 +50,46 @@ def test_backtest_rejects_mixed_leagues():
     x = pd.DataFrame([{"league": "nfl", "season": 2025}, {"league": "cfb", "season": 2025}])
     with pytest.raises(ValueError):
         backtest(x)
+
+
+@pytest.mark.parametrize("path", [
+    [.5, float("nan")], [.5, float("inf")], [.5, 1.1], [[.5, .6]], [.5],
+])
+def test_trade_rejects_invalid_probability_paths(path):
+    with pytest.raises(ValueError, match="path"):
+        toy_trade(pd.Series({"future_path": json.dumps(path), "wp_change_10": -.05}))
+
+
+@pytest.mark.parametrize("parameter", ["target", "stop", "cost"])
+def test_trade_rejects_nonfinite_parameters(parameter):
+    row = pd.Series({"future_path": "[0.5, 0.6]", "wp_change_10": -.05})
+    with pytest.raises(ValueError, match="finite"):
+        toy_trade(row, **{parameter: float("nan")})
+
+
+def predictions_fixture():
+    return pd.DataFrame([{
+        "league": "nfl", "game_id": "one", "season": 2025, "checkpoint": 40,
+        "predicted_future_range": .1, "future_range": .1, "future_path": "[0.5, 0.6]",
+        "wp_change_10": -.05, "train_mean_baseline": .1, "horizon": 1,
+    }, {
+        "league": "nfl", "game_id": "two", "season": 2025, "checkpoint": 40,
+        "predicted_future_range": .2, "future_range": .2, "future_path": "[0.5, 0.7]",
+        "wp_change_10": .05, "train_mean_baseline": .1, "horizon": 1,
+    }])
+
+
+@pytest.mark.parametrize("column", ["predicted_future_range", "future_range", "wp_change_10", "train_mean_baseline"])
+def test_backtest_rejects_nonfinite_predictions(column):
+    predictions = predictions_fixture()
+    predictions.loc[0, column] = float("nan")
+    with pytest.raises(ValueError, match="finite"):
+        backtest(predictions)
+
+
+def test_backtest_reports_actual_horizon_and_rejects_mixed_paths():
+    predictions = predictions_fixture()
+    assert backtest(predictions)["selection"]["basis"] == "predicted next-1-play WP range"
+    predictions.loc[0, "future_path"] = "[0.5, 0.6, 0.7]"
+    with pytest.raises(ValueError, match="horizon"):
+        backtest(predictions)

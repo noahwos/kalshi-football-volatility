@@ -39,3 +39,23 @@ def test_normalization_removes_invalid_probabilities_duplicates_and_sorts():
 def test_invalid_league_fails():
     with pytest.raises(ValueError):
         normalize(pd.DataFrame([{"league": "soccer", "season": 2024, "game_id": "x", "play_number": 1, "home_wp": .5, "home_score": 0, "away_score": 0}]))
+
+
+def test_reused_game_id_is_rejected_before_deduplicating_plays():
+    rows = pd.DataFrame([
+        {"league": "nfl", "season": year, "game_id": "same", "play_number": 1,
+         "home_wp": .5, "home_score": 0, "away_score": 0}
+        for year in (2023, 2024)
+    ])
+    with pytest.raises(ValueError, match="across seasons"):
+        normalize(rows)
+
+
+def test_nonfinite_required_values_and_blank_game_ids_are_removed():
+    valid = {"league": "nfl", "season": 2024, "game_id": "valid", "play_number": 1,
+             "home_wp": .5, "home_score": 0, "away_score": 0}
+    rows = [valid, {**valid, "game_id": " "}]
+    for field in ("season", "play_number", "home_wp", "home_score", "away_score"):
+        rows.append({**valid, "game_id": field, field: float("inf")})
+    clean = normalize(pd.DataFrame(rows))
+    assert clean.game_id.tolist() == ["valid"]

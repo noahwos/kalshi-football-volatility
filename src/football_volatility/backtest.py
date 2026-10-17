@@ -9,12 +9,21 @@ import numpy as np
 import pandas as pd
 
 
+def _validate_trade_parameters(target: float, stop: float, cost: float) -> None:
+    if not np.isfinite([target, stop, cost]).all() or min(target, stop) <= 0 or cost < 0:
+        raise ValueError("Trade target and stop must be finite and positive; cost must be finite and nonnegative")
+
+
 def toy_trade(row: pd.Series, target: float = .10, stop: float = .08, cost: float = .02) -> dict:
     """Trade side is chosen at checkpoint using past 10-play trend only."""
+    _validate_trade_parameters(target, stop, cost)
     path = json.loads(row["future_path"]) if isinstance(row["future_path"], str) else row["future_path"]
-    if len(path) < 2:
-        raise ValueError("Trading proxy needs at least one future quote")
+    path = np.asarray(path, dtype=float)
+    if path.ndim != 1 or len(path) < 2 or not np.isfinite(path).all() or not ((0 <= path) & (path <= 1)).all():
+        raise ValueError("Trading proxy needs a one-dimensional path of at least two finite probabilities in [0, 1]")
     past_change = float(row["wp_change_10"])
+    if not np.isfinite(past_change) or not -1 <= past_change <= 1:
+        raise ValueError("Past probability change must be finite and in [-1, 1]")
     if past_change == 0:
         return {"pnl_proxy": 0., "trade_status": "no_signal", "exit_play": 0, "side": "none"}
     # Buy whichever outcome lost probability in the last 10 plays.
@@ -61,13 +70,23 @@ def backtest(predictions: pd.DataFrame, *, top_fraction: float = .25, target: fl
     required = {"league", "game_id", "season", "checkpoint", "predicted_future_range", "future_range", "future_path", "wp_change_10", "train_mean_baseline"}
     if missing := required - set(predictions):
         raise ValueError(f"Missing predictions columns: {sorted(missing)}")
-    if not 0 < top_fraction <= 1 or min(target, stop) <= 0 or cost < 0:
-        raise ValueError("Invalid backtest trade parameters")
+    _validate_trade_parameters(target, stop, cost)
+    if not np.isfinite(top_fraction) or not 0 < top_fraction <= 1:
+        raise ValueError("Backtest top_fraction must be finite and in (0, 1]")
     if predictions.league.nunique() != 1 or predictions.season.nunique() != 1:
         raise ValueError("Backtest accepts one held-out league and season only")
     table = predictions.copy()
     for name in ["predicted_future_range", "future_range", "wp_change_10", "train_mean_baseline"]:
         table[name] = pd.to_numeric(table[name], errors="raise")
+        if not np.isfinite(table[name]).all():
+            raise ValueError(f"Prediction column {name} must contain finite values")
+    for name in ["predicted_future_range", "future_range", "train_mean_baseline"]:
+        if not table[name].between(0, 1).all():
+            raise ValueError(f"Prediction column {name} must contain values in [0, 1]")
+    horizons = table["future_path"].map(lambda value: len(json.loads(value) if isinstance(value, str) else value) - 1)
+    if horizons.nunique() != 1 or ("horizon" in table and not table.horizon.eq(horizons).all()):
+        raise ValueError("Backtest requires a single future horizon matching every path")
+    horizon = int(horizons.iloc[0])
     table = table.sort_values(["game_date", "game_id", "checkpoint"], na_position="last").reset_index(drop=True) if "game_date" in table else table.sort_values(["game_id", "checkpoint"]).reset_index(drop=True)
     trades = table.apply(lambda r: pd.Series(toy_trade(r, target, stop, cost)), axis=1)
     table = pd.concat([table, trades], axis=1)
@@ -78,7 +97,7 @@ def backtest(predictions: pd.DataFrame, *, top_fraction: float = .25, target: fl
     corr = table.predicted_future_range.corr(table.future_range, method="spearman")
     result = {
         "league": table.league.iloc[0], "holdout_season": int(table.season.iloc[0]),
-        "selection": {"fraction": top_fraction, "basis": "predicted next-40-play WP range"},
+        "selection": {"fraction": top_fraction, "basis": f"predicted next-{horizon}-play WP range"},
         "ranking": {
             "spearman": float(corr) if pd.notna(corr) else None,
             "top_mean_future_range": float(top.future_range.mean()),

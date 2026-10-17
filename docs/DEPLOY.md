@@ -1,19 +1,40 @@
 # Publishing the feature branch and opening a pull request
 
-This workspace was originally an **empty remote GitHub repository**. GitHub integration rejected the initial file write with `403 Resource not accessible by integration`; consequently, this build has **NOT** been pushed remotely and **NO PR has been opened**.
+The repository has an initial `main` commit and a pushed
+`feature/football-volatility-analyzer` branch containing the source code.
+Use the existing checkout; no Git bundle or reinitialization is needed.
 
-The accompanying `.bundle` artifact preserves an initial `main` commit and a feature branch `feature/football-volatility-analyzer`. To push after granting the GitHub connector permission or using an authenticated local Git client:
+Before publishing further changes:
 
 ```bash
-git clone kalshi-football-volatility.bundle kalshi-football-volatility
-cd kalshi-football-volatility
-git branch main origin/main  # bundle clone initially checks out only the feature branch
-git remote set-url origin https://github.com/noahwos/kalshi-football-volatility.git
-git push -u origin main
-git push -u origin feature/football-volatility-analyzer
-# Open https://github.com/noahwos/kalshi-football-volatility/compare/main...feature/football-volatility-analyzer?expand=1
+source .venv/bin/activate
+OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 pytest -q
+ruff check src tests
+python -m pip check
+git diff --check
+git status --short
 ```
 
-If you prefer the source zip, extract and commit on a new branch yourself; the zip does not preserve Git history, but the Git bundle does.
+Keep credentials, downloaded data, trained models and generated reports out of commits.
+After committing reviewed changes on the feature branch:
 
-Do not force-push if the remote has been initialized or updated independently. Reconcile histories first.
+```bash
+git push -u origin feature/football-volatility-analyzer
+gh pr list --repo noahwos/kalshi-football-volatility \
+  --head feature/football-volatility-analyzer --base main
+# If no PR exists:
+gh pr create --repo noahwos/kalshi-football-volatility \
+  --base main --head feature/football-volatility-analyzer \
+  --title 'Add NFL and CFB historical volatility analyzer' \
+  --body-file docs/PR_DESCRIPTION.md
+```
+
+PR creation requires authenticated access to `api.github.com` in addition to Git
+push access. If the environment proxy returns HTTP 403 before connecting to the
+API, apply the saved allowed-domain setting to the running environment. Saving
+a configuration draft alone does not apply runtime networking changes.
+
+Alternatively, open the comparison in GitHub and use `docs/PR_DESCRIPTION.md`:
+https://github.com/noahwos/kalshi-football-volatility/compare/main...feature/football-volatility-analyzer?expand=1
+
+Leave the PR open for review; do not merge it as part of setup.
