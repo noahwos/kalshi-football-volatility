@@ -1,4 +1,4 @@
-"""Simple research CLI: fva ingest-nfl/ingest-cfb/features/train/backtest/score/demo."""
+"""Research CLI: historical ingestion, features, training, backtesting and scoring."""
 from __future__ import annotations
 
 import argparse
@@ -29,6 +29,10 @@ def parse_args(argv=None):
     cfb.add_argument("--season-type", choices=["regular", "postseason"], default="regular")
     cfb.add_argument("--cache", default="data/raw/cfb")
     cfb.add_argument("--output", required=True)
+    archive = sub.add_parser("ingest-cfbfastr", help="Fetch public historical CFB archives without an API key")
+    archive.add_argument("--seasons", nargs="+", type=int, required=True)
+    archive.add_argument("--cache", default="data/raw/cfbfastr")
+    archive.add_argument("--output", required=True)
     feats = sub.add_parser("features", help="Create past-only features and future labels")
     feats.add_argument("--input", required=True)
     feats.add_argument("--output", required=True)
@@ -69,6 +73,11 @@ def main(argv=None):
         result = ingest(args.seasons, args.weeks, args.limit_games, args.cache, season_type=args.season_type)
         save_csv(result, args.output)
         print(f"CFB: {len(result)} plays from {result.game_id.nunique()} games -> {args.output}")
+    elif args.command == "ingest-cfbfastr":
+        from football_volatility.data.cfbfastr import ingest
+        result = ingest(args.seasons, args.cache)
+        save_csv(result, args.output)
+        print(f"CFB (cfbfastR): {len(result)} plays from {result.game_id.nunique()} games -> {args.output}")
     elif args.command == "features":
         result = build_features(read_csv(args.input), checkpoints=tuple(args.checkpoints), horizon=args.horizon)
         save_csv(result, args.output)

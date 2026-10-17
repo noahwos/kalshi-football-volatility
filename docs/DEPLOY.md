@@ -34,6 +34,28 @@ push access. If the environment proxy returns HTTP 403 before connecting to the
 API, apply the saved allowed-domain setting to the running environment. Saving
 a configuration draft alone does not apply runtime networking changes.
 
+The feature branch also includes a GitHub Actions helper to open/update the PR
+using GitHub's own token. Its first run reached GitHub successfully but was
+rejected with:
+
+> GitHub Actions is not permitted to create or approve pull requests
+
+The repository owner must enable **Settings → Actions → General → Workflow
+permissions → Allow GitHub Actions to create and approve pull requests**:
+https://github.com/noahwos/kalshi-football-volatility/settings/actions
+
+The helper requests `contents: read` and `pull-requests: write`; it never merges
+or approves the PR. Once enabled, request a run with an explicit commit marker:
+
+```bash
+git commit --allow-empty -m 'Request analyzer PR [open-pr]'
+git push origin feature/football-volatility-analyzer
+```
+
+Ordinary commits skip this helper, so they do not repeatedly retry a known
+permission denial. It creates the PR if absent or updates its description from
+`docs/PR_DESCRIPTION.md` if one already exists.
+
 Alternatively, open the comparison in GitHub and use `docs/PR_DESCRIPTION.md`:
 https://github.com/noahwos/kalshi-football-volatility/compare/main...feature/football-volatility-analyzer?expand=1
 

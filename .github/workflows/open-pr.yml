@@ -3,9 +3,6 @@ name: Open analyzer pull request
 on:
   push:
     branches: [feature/football-volatility-analyzer]
-    paths:
-      - .github/workflows/open-pr.yml
-      - docs/PR_DESCRIPTION.md
   workflow_dispatch:
 
 permissions:
@@ -18,7 +15,7 @@ concurrency:
 
 jobs:
   open-pr:
-    if: github.repository == 'noahwos/kalshi-football-volatility' && github.ref == 'refs/heads/feature/football-volatility-analyzer'
+    if: github.repository == 'noahwos/kalshi-football-volatility' && github.ref == 'refs/heads/feature/football-volatility-analyzer' && (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[open-pr]'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

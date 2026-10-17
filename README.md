@@ -2,11 +2,11 @@
 
 **Historical research toolkit** to rank football games by *prospective intragame win-probability movement*, rather than by which team is more likely to win. **NFL and college football (CFB) use separate data pipelines, training sets, and fitted models.**
 
-> **Status:** 27 tests pass. The NFL workflow was exercised on real 2023–2025 nflverse data: 147,928 normalized plays across 855 games, training on 2023–2024 with a 2025 holdout. Range prediction beat the mean baseline in that holdout; the toy trading proxy lost money. Authenticated CFBD ingestion and Kalshi execution remain unvalidated. CFBD requires an API key and an integration smoke test. See [validation results](docs/VALIDATION.md). This is research software, not a trading system or an assurance of profitable trades.
+> **Status:** 34 tests pass. Real NFL and CFB ingestion, training, holdout evaluation and scoring work with public archives and no API key. The NFL workflow used 2023–2025 nflverse data; CFB uses separate cfbfastR archives and models. Authenticated CFBD ingestion remains an optional, unvalidated alternative. See [validation results](docs/VALIDATION.md). This is research software, not a trading system or an assurance of profitable trades.
 
 ## What it does
 
-1. Downloads NFL historical play-by-play from **nflverse** (CSV or Parquet) and college football historical plays, game metadata and play-level win probabilities from **CollegeFootballData** (requires `CFBD_API_KEY`). Raw sources are normalized to one auditable schema, but league-specific data and models remain separate.
+1. Downloads NFL historical play-by-play from **nflverse** and college football historical play-by-play from the public **cfbfastR / SportsDataverse** archives. An optional **CollegeFootballData** connector requires `CFBD_API_KEY`. Raw sources share a normalized schema; keep separate models by league and probability source.
 2. At **exactly 40 and 80 observed plays**, calculates features known at that instant. The targets measure the **next 40 plays** of home-team win-probability movement (future range and variation). Incomplete future windows are not labeled. No final score, final game length or future observation is allowed into features.
 3. Trains **two separate** gradient-boosted regressors (one per league), with chronological season holdouts. Predicts the size of the potential range of probability movement over the next 40 plays.
 4. Generates out-of-sample ranking metrics, baseline comparisons, and a *toy* contrarian trading rule, with cost/slippage modeled in percentage points. **These are model-probability proxy quotes, not historical Kalshi quotes**. Actual exchange trade P&L, fill probability, spreads and liquidity remain unvalidated.
@@ -28,28 +28,32 @@ pytest -q
 # 1: Download three NFL seasons as normalized play-by-play (internet needed).
 fva ingest-nfl --seasons 2023 2024 2025 --output data/nfl_2023_2025.csv
 
-# 2: Historical college football (CFBD API key required).
-export CFBD_API_KEY='YOUR_KEY'
-fva ingest-cfb --seasons 2023 2024 2025 --weeks 1 2 3 4 5 \
-  --output data/cfb_2023_2025.csv
-# For larger samples, extend regular-season `--weeks` (typically 1-15). Postseason requires a separate `--season-type postseason` download, and week availability varies.
+# 2: Public historical college football archives (no API key).
+fva ingest-cfbfastr --seasons 2023 2024 2025 --output data/cfbfastr_2023_2025.csv
 
 # 3: Construct *separate* research datasets.
 fva features --input data/nfl_2023_2025.csv --output data/nfl_features.csv
-fva features --input data/cfb_2023_2025.csv --output data/cfb_features.csv
+fva features --input data/cfbfastr_2023_2025.csv --output data/cfbfastr_features.csv
 
 # 4: Later-season holdout (will fail fast if training/holdout is too small).
 fva train --input data/nfl_features.csv --league nfl --test-season 2025 --model-dir models/nfl
-fva train --input data/cfb_features.csv --league cfb --test-season 2025 --model-dir models/cfb
+fva train --input data/cfbfastr_features.csv --league cfb --test-season 2025 --model-dir models/cfbfastr
 
 # 5: Out-of-sample backtest (probability proxy; NOT Kalshi P&L).
 fva backtest --predictions models/nfl/holdout_predictions.csv --output reports/nfl.json
-fva backtest --predictions models/cfb/holdout_predictions.csv --output reports/cfb.json
+fva backtest --predictions models/cfbfastr/holdout_predictions.csv --output reports/cfbfastr.json
 
 # 6: Example scoring at the 40-play checkpoint (input must only include observed plays).
 fva score --input data/nfl_2023_2025.csv --model-dir models/nfl --checkpoint 40 \
   --output reports/nfl_scores.csv
 ```
+
+For the optional CFBD connector, securely set `CFBD_API_KEY` and run
+`fva ingest-cfb --seasons 2023 2024 2025 --weeks 1 2 3 4 5 --output data/cfbd.csv`.
+Extend weeks for a larger regular-season sample; postseason uses a separate
+`--season-type postseason` download. Do not pool CFBD and cfbfastR probabilities
+in one model. See the source-specific ordering and coverage caveats in
+[Data sources](docs/DATA_SOURCES.md).
 
 For an entirely offline **synthetic smoke test**, run:
 

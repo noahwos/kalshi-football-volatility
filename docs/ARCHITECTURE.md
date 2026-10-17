@@ -1,10 +1,15 @@
 # Architecture and methodology
 
-`ingest-nfl` and `ingest-cfb` -> normalized per-play CSV -> `features` -> 2 independent league models -> holdout rankings -> proxy trading backtest.
+`ingest-nfl`, `ingest-cfbfastr` or optional authenticated `ingest-cfb` -> normalized per-play CSV -> `features` -> independent models by league and probability source -> holdout rankings -> proxy trading backtest.
 
 Each normalized row: `league`, `season`, `week`, `game_id`, `game_date`, `home_team`, `away_team`, `play_id`, `play_number`, `period`, `seconds_remaining`, `home_score`, `away_score`, `home_wp`, `down`, `distance`.
 
-The time series is sorted by *play number*, rather than by imperfect wall-clock updates. Duplicate play IDs or play numbers are removed at ingestion. Both ingestion implementations explicitly reject out-of-range WPs. Game-end outcomes, future total play counts and future scores are excluded from feature generation.
+Normalized time series are sorted by play number. The cfbfastR importer first
+reconstructs chronological observation numbers from period and clock because
+some archived game counters reset; source order breaks ties. Administrative
+events and invalid probabilities are removed. Normalization deduplicates play
+numbers. See `DATA_SOURCES.md` for timing and coverage limitations. Game-end
+outcomes, future total play counts and future scores are excluded from features.
 
 At checkpoints 40 and 80, features are computed on the first N known plays. Training targets use the subsequent 40 plays: `max(WP) - min(WP)` for the current+future path, future realized total absolute WP variation, and number of moves >= 10 percentage points. The label is a **future path target**; max-min assumes hindsight and is not executable. Features capture historical range/total variation, trend/absolute swing, close-game fraction, game state and score changes. There is no ungrounded pregame prediction and no exchange quote history in this version.
 

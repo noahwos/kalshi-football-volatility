@@ -5,7 +5,7 @@ holdout, not a final model-selection study or an executable trading result.
 
 ## Automated and synthetic checks
 
-- Full test suite: **27 passed**.
+- Full test suite: **34 passed**.
 - `ruff check src tests`: passed.
 - `python -m pip check`: no broken requirements.
 - Synthetic CLI workflow: demo generation, feature creation, separate NFL/CFB
@@ -68,9 +68,54 @@ Installed versions: numpy 2.5.4, pandas 3.0.6, scikit-learn 1.9.1,
 requests 2.34.2, pyarrow 26.0.0, pytest 9.1.1. Dependency ranges in
 `pyproject.toml` are not a lockfile; future installations may resolve differently.
 
+## Real public CFB historical workflow
+
+```bash
+source .venv/bin/activate
+export OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2
+fva ingest-cfbfastr --seasons 2023 2024 2025 --output data/cfbfastr_2023_2025.csv
+fva features --input data/cfbfastr_2023_2025.csv --output data/cfbfastr_2023_2025_features.csv
+fva train --input data/cfbfastr_2023_2025_features.csv --league cfb \
+  --test-season 2025 --model-dir models/cfbfastr
+fva backtest --predictions models/cfbfastr/holdout_predictions.csv --output reports/cfbfastr.json
+for checkpoint in 40 80; do
+  fva score --input data/cfbfastr_2023_2025.csv --model-dir models/cfbfastr \
+    --checkpoint "$checkpoint" --output "reports/cfbfastr_${checkpoint}_scores.csv"
+done
+```
+
+All commands completed without a CFBD API key. The cached ingestion path was
+also rerun. Output: **425,204 normalized observations from 2,762 games**, yielding
+5,506 snapshots. Training used 3,648 snapshots from 1,827 games in 2023–2024;
+the 2025 holdout contained 1,858 snapshots from 933 games. Some games lack
+enough valid observations for both checkpoints. Raw ingested games and eligible
+training/holdout games therefore differ.
+
+| Holdout metric | CFB model | Training-mean baseline |
+| --- | ---: | ---: |
+| Future-range MAE | 0.14209 | 0.19715 |
+| Future-range RMSE | 0.19701 | 0.23010 |
+
+Rank correlation was 0.4357; top-quartile future-range lift was 1.2623. The toy
+proxy mean P&L was +0.03195 over all holdout decisions, +0.03104 over selected
+decisions. These are movements of archived model probabilities, **not exchange
+profits**. Sampled source counters reset and post-play probabilities inverted;
+the importer instead reconstructs chronology and uses pre-play WP. It cannot
+establish that upstream probability models are calibrated or free of other
+artifacts. Source quality and timing need an independent audit before using
+these results for strategy decisions. See `DATA_SOURCES.md` for exact mapping.
+
+Public cfbfastR archive hashes (SHA-256), separate from nflverse above:
+
+| File | SHA-256 |
+| --- | --- |
+| `play_by_play_2023.parquet` | `167889e635679d2a745a0f73690bf51afcb28236d3bbaed32aeabb154b726be9` |
+| `play_by_play_2024.parquet` | `60489da0c61c56b86698ee14be65cb521010f707e9a2f4ded8d561e9ef592bd4` |
+| `play_by_play_2025.parquet` | `2290311f156083730b6b9d9e6662d121dc86953d71e11aafc9da4c0753819369` |
+
 ## Remaining external prerequisites
 
-Authenticated CollegeFootballData ingestion was **not run**: `CFBD_API_KEY` is
+The optional authenticated CollegeFootballData connector was **not run**: `CFBD_API_KEY` is
 absent. Supply it securely in environment settings and allow
 `api.collegefootballdata.com`; then start with one season/week and
 `--limit-games 1`, inspect joined play/WP coverage, and expand to enough seasons
