@@ -28,12 +28,21 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          run_gh() {
+            if gh "$@" 2> "$RUNNER_TEMP/fva-pr-error.txt"; then
+              return 0
+            fi
+            while IFS= read -r line; do
+              printf '::error title=GitHub PR request failed::%s\n' "$line" >&2
+            done < "$RUNNER_TEMP/fva-pr-error.txt"
+            return 1
+          }
           branch=feature/football-volatility-analyzer
-          pr_url=$(gh pr list --base main --head "$branch" --state open --json url --jq '.[0].url // empty')
+          pr_url=$(run_gh pr list --base main --head "$branch" --state open --json url --jq '.[0].url // empty')
           if [ -n "$pr_url" ]; then
-            gh pr edit "$pr_url" --body-file docs/PR_DESCRIPTION.md
+            run_gh pr edit "$pr_url" --body-file docs/PR_DESCRIPTION.md
           else
-            pr_url=$(gh pr create --base main --head "$branch" \
+            pr_url=$(run_gh pr create --base main --head "$branch" \
               --title 'Add NFL and CFB historical volatility analyzer' \
               --body-file docs/PR_DESCRIPTION.md)
           fi
