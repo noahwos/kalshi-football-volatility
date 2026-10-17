@@ -1,0 +1,40 @@
+name: Open analyzer pull request
+
+on:
+  push:
+    branches: [feature/football-volatility-analyzer]
+    paths:
+      - .github/workflows/open-pr.yml
+      - docs/PR_DESCRIPTION.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: analyzer-pull-request
+  cancel-in-progress: false
+
+jobs:
+  open-pr:
+    if: github.repository == 'noahwos/kalshi-football-volatility' && github.ref == 'refs/heads/feature/football-volatility-analyzer'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create or update the review pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          branch=feature/football-volatility-analyzer
+          pr_url=$(gh pr list --base main --head "$branch" --state open --json url --jq '.[0].url // empty')
+          if [ -n "$pr_url" ]; then
+            gh pr edit "$pr_url" --body-file docs/PR_DESCRIPTION.md
+          else
+            pr_url=$(gh pr create --base main --head "$branch" \
+              --title 'Add NFL and CFB historical volatility analyzer' \
+              --body-file docs/PR_DESCRIPTION.md)
+          fi
+          printf 'Pull request: %s\n' "$pr_url" >> "$GITHUB_STEP_SUMMARY"
