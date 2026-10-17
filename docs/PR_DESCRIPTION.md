@@ -1,29 +1,60 @@
-# Pull request: NFL + CFB Historical Volatility Analyzer
+# Football volatility analyzer with an offline browser dashboard
 
 ## Summary
-- Add public NFL nflverse and CFB cfbfastR archive importers, plus an optional authenticated CFBD connector; normalize data without exposing final scores at decision time. Historical NFL/CFB research can run without API keys.
-- Reconstruct CFB archive chronology from period/clock, exclude administrative events, and align pre-play home WP with lagged in-game scores rather than unreliable archive counters or post-play probabilities.
-- Construct exact 40- and 80-play in-game snapshots and next-40-play volatility labels using only data available by each checkpoint.
-- Train league-specific gradient boosting pipelines, separated by season; enforce held-out game isolation.
-- Generate out-of-sample ranking MAE/RMSE/baselines and toy time-ordered probability-proxy backtests with cost, stop and target.
-- Provide offline synthetic CLI smoke test, unit tests, CI workflow, docs for reproducible real-data work and source attribution.
-- Reject game IDs reused across seasons before deduplicating plays, and remove non-finite required values and blank game IDs during normalization.
-- Validate backtest probability paths, predictions and trade parameters; report the actual future horizon and reject mixed horizons.
 
-## Verification
-- `OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 .venv/bin/pytest -q` — 34 passed on Python 3.12.14, including regression tests for data validation, CFB chronology/score alignment and repeatable cached ingestion.
-- `.venv/bin/ruff check src tests` and `.venv/bin/pip check` — passed.
-- Clean up imports and redundant integer casts; report unexpected CFBD response types with `TypeError`.
-- End-to-end CLI run: `demo`, `features`, `train --league nfl`, `train --league cfb`, `backtest` and `score` executed successfully on **synthetic** data.
-- Real NFL ingestion succeeded for 2023–2025: 147,928 normalized plays across 855 games and 1,710 labeled snapshots. Training on 2023–2024, 2025 holdout evaluation/backtesting and scoring at both checkpoints completed.
-- NFL holdout range MAE: 0.06815 versus 0.08961 for the training-mean baseline. The toy strategy lost money; this is not an exchange-profitability result. See `docs/VALIDATION.md` for commands, source hashes and limitations.
-- Public CFB ingestion succeeded for 2023–2025: 425,204 normalized observations across 2,762 games and 5,506 labeled snapshots. Separate CFB training on 2023–2024, holdout backtesting on 2025 and scoring at both checkpoints completed. Holdout range MAE: 0.14209 versus baseline 0.19715; archive quality caveats apply.
-- Authenticated CFBD historical ingestion remains untested because `CFBD_API_KEY` is absent. No exchange P&L is claimed.
+Add a historical NFL/college football research toolkit and a self-contained
+browser dashboard. Rank games by predicted home win-probability range over the
+next 40 observations, using checkpoints at 40 and 80 observations. The dashboard
+opens as one HTML file, with no server, account, API key or external assets.
 
-## Known limitations / follow-ups
-- The optional CFBD connector needs an authenticated integration smoke test; public archive ingestion is verified without a token.
-- Archive clocks, ties, coverage and model-probability revisions need source quality review before strategy conclusions; keep cfbfastR and CFBD models separate.
-- GitHub Actions PR automation requires the owner's "Allow GitHub Actions to create and approve pull requests" setting. A run reached GitHub but was denied by that setting; no PR has been merged.
-- `home_wp` and CFBD `homeWinProbability` represent source-model probabilities, not actual Kalshi order-book prices.
-- Validate Kalshi historical quotes, fees, fills, latency and market halts before drawing executable strategy conclusions.
-- Pregame prediction, real-time polling, order execution and account management are intentionally not included.
+- Import public nflverse and cfbfastR archives; retain an optional authenticated
+  CFBD connector. Normalize in-game data and keep league/source models separate.
+- Build past-only features and complete future labels, train gradient-boosted
+  regressors on earlier seasons, and evaluate an isolated later-season holdout.
+- Explore held-out rankings with league/checkpoint filters, team search, sorting,
+  pagination and selected-game probability charts. Historical future paths are
+  hidden until explicitly revealed. Export filtered rankings to CSV.
+- Validate chronology, finite data, probability paths, source/label alignment,
+  complete windows and cross-season game identities. Escape embedded data and
+  render team names as text in the dashboard.
+- Include CLI commands, an offline synthetic workflow, tests, CI, source hashes
+  and reproducible real-data validation documentation.
+
+## Use the dashboard
+
+After the documented historical workflow has generated data and holdout models:
+
+```bash
+fva dashboard --output reports/dashboard.html
+```
+
+Open the generated HTML file in a browser. Downloaded data, models and exports
+remain ignored; the application code and dashboard template are packaged.
+
+## Validation
+
+- Python suite: 43 passed; Ruff and dependency consistency checks passed.
+- Chromium: both leagues/checkpoints, search, sorting, pagination, game selection,
+  charts, outcome reveal, CSV contents, help and mobile layout passed on the real
+  export and a synthetic fixture. No JavaScript errors or external requests.
+  CI runs the Python matrix and a Chromium fixture check on Python 3.12.
+- Built wheel includes the browser template.
+- Real NFL: 147,928 observations, 855 games and 1,710 snapshots for 2023–2025;
+  training on 2023–2024, holdout evaluation/backtesting on 2025 and both scoring
+  checkpoints completed. Holdout range MAE 0.06815 versus mean baseline 0.08961.
+- Real CFB: 425,204 observations, 2,762 games and 5,506 snapshots for 2023–2025;
+  independent training, holdout evaluation/backtesting and scoring completed.
+  Holdout range MAE 0.14209 versus baseline 0.19715.
+
+See `docs/VALIDATION.md` for commands, source hashes, sample counts and limitations.
+
+## Limits
+
+Historical model probabilities are not Kalshi prices. The NFL toy proxy lost
+money; no exchange profitability is established. cfbfastR source ordering and
+post-play WP artifacts required reconstruction from period/clock and pre-play WP;
+source coverage, timing ties and model revisions still need independent audit.
+The optional CFBD connector remains untested against an authenticated live API.
+Live polling, exchange quotes, fees/fills integration, order execution and account
+management are not implemented. Leave this PR open for review; do not merge it
+as part of this task.

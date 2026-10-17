@@ -2,7 +2,7 @@
 
 **Historical research toolkit** to rank football games by *prospective intragame win-probability movement*, rather than by which team is more likely to win. **NFL and college football (CFB) use separate data pipelines, training sets, and fitted models.**
 
-> **Status:** 34 tests pass. Real NFL and CFB ingestion, training, holdout evaluation and scoring work with public archives and no API key. The NFL workflow used 2023–2025 nflverse data; CFB uses separate cfbfastR archives and models. Authenticated CFBD ingestion remains an optional, unvalidated alternative. See [validation results](docs/VALIDATION.md). This is research software, not a trading system or an assurance of profitable trades.
+> **Status:** 43 tests pass. An offline browser dashboard explores historical NFL/CFB holdout rankings and probability charts. Real ingestion, training, holdout evaluation and scoring work with public archives and no API key. Authenticated CFBD ingestion remains an optional, unvalidated alternative. See [validation results](docs/VALIDATION.md). This is research software, not a trading system or an assurance of profitable trades.
 
 ## What it does
 
@@ -21,6 +21,35 @@ pip install -e '.[dev]'
 fva --help
 pytest -q
 ```
+
+## Browser dashboard
+
+Once the real-data workflow below has prepared `data/` and `models/` (already
+done in the cloud workspace), generate a self-contained dashboard:
+
+```bash
+fva dashboard --output reports/dashboard.html
+```
+
+Open `reports/dashboard.html` in your browser. You can copy that one HTML file
+to another computer; Python, a server, internet and API keys are not needed to
+view it. Filters, charts and exports all run inside the browser.
+
+- Choose NFL or college football, and the 40- or 80-observation checkpoint.
+- Search teams or game IDs, sort rankings, and select a game to inspect its path.
+- Later observations are hidden initially. Reveal them to compare the forecast
+  with the historical outcome; the later path is observed data, not a forecast.
+- Export the current filtered rankings to CSV. Observed future ranges are only
+  included when the reveal toggle is on.
+
+The dashboard includes only the season held out during training. It verifies
+that predictions match the normalized observations before exporting. Model error
+is the held-out mean absolute range error across both checkpoints. This is a
+historical snapshot; rerun the CLI workflow and export to refresh it. Live feeds
+and Kalshi execution are not connected. The export embeds derived historical
+data; follow source licensing when sharing it.
+
+To read prepared outputs in another checkout location, add `--workspace PATH`.
 
 ## Reproducible real-data workflow
 
@@ -75,3 +104,17 @@ The synthetic `demo` dataset is only for testing plumbing. **Its scores must nev
 - Historical data can be revised; pin exports or snapshot raw downloads to make research fully reproducible.
 
 See [Architecture](docs/ARCHITECTURE.md), [Backtesting caveats](docs/BACKTEST.md), [Data sources](docs/DATA_SOURCES.md), [Release/PR steps](docs/DEPLOY.md), and the [prepared PR description](docs/PR_DESCRIPTION.md).
+
+## Browser verification for development
+
+```bash
+pip install -e '.[dev,browser]'
+python -m playwright install chromium
+python scripts/check_dashboard_browser.py reports/dashboard.html
+```
+
+The check script uses a temporary internal loopback server and Chromium to
+exercise filtering, sorting, paging, charts, CSV downloads, mobile layout and
+the help dialog. It also rejects JavaScript errors and external requests. CI
+runs the same check on fabricated test fixtures; historical validation results
+are documented separately.

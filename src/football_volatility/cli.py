@@ -58,6 +58,9 @@ def parse_args(argv=None):
     scoring.add_argument("--output", required=True)
     demo = sub.add_parser("demo", help="Generate synthetic games for smoke tests ONLY")
     demo.add_argument("--output", required=True)
+    dashboard = sub.add_parser("dashboard", help="Create an offline browser dashboard from historical holdouts")
+    dashboard.add_argument("--workspace", default=".", help="Directory containing data/ and models/")
+    dashboard.add_argument("--output", default="reports/dashboard.html")
     return parser.parse_args(argv)
 
 
@@ -106,6 +109,13 @@ def main(argv=None):
         result = make_demo()
         save_csv(result, args.output)
         print(f"Created {len(result)} SYNTHETIC plays -> {args.output}")
+    elif args.command == "dashboard":
+        from football_volatility.dashboard import build_dashboard
+        try:
+            result = build_dashboard(args.workspace, args.output)
+        except (ValueError, OSError) as error:
+            raise SystemExit(f"Cannot build dashboard: {error}") from error
+        print(f"Dashboard saved to {result}\nOpen this HTML file in a browser; no server or API key is required.")
 
 
 if __name__ == "__main__":

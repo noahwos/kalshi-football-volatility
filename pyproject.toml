@@ -12,12 +12,16 @@ dependencies = ["numpy>=1.26", "pandas>=2.1", "scikit-learn>=1.4", "requests>=2.
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6"]
+browser = ["playwright>=1.45"]
 
 [project.scripts]
 fva = "football_volatility.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+football_volatility = ["assets/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

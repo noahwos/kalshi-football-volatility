@@ -5,7 +5,7 @@ holdout, not a final model-selection study or an executable trading result.
 
 ## Automated and synthetic checks
 
-- Full test suite: **34 passed**.
+- Full test suite: **43 passed**.
 - `ruff check src tests`: passed.
 - `python -m pip check`: no broken requirements.
 - Synthetic CLI workflow: demo generation, feature creation, separate NFL/CFB
@@ -125,3 +125,23 @@ establish live API compatibility, coverage or quota sufficiency.
 Actual exchange research additionally requires historical Kalshi quotes aligned
 to event timestamps, fees, spreads, depth, fills, latency and market-halt handling.
 No Kalshi order execution is implemented.
+
+## Browser dashboard
+
+`fva dashboard --output reports/dashboard.html` generated a self-contained HTML
+file from the real held-out predictions and normalized observations. It includes
+285 NFL games at each checkpoint, 933 CFB games at checkpoint 40 and 925 at
+checkpoint 80. Training seasons are excluded from the interactive rankings.
+
+Added tests validate holdout isolation, checkpoint/label alignment, complete
+windows, stale prediction detection, duplicate rejection, embedded-data escaping,
+missing-data errors and the CLI export. A built wheel contains the HTML template.
+
+`python scripts/check_dashboard_browser.py reports/dashboard.html` passed in
+Chromium against the real export, and against the synthetic fixture used by CI.
+It exercised league/checkpoint filters, search, both sort directions, paging,
+game selection, probability paths, outcome reveal, CSV contents, the empty
+state, help dialog and a 390-pixel mobile layout. There were no JavaScript errors
+or requests to external hosts. Browser validation used a temporary internal HTTP
+server because the runner's managed Chromium blocks file navigation. The export
+has no external scripts, styles, fonts, API requests or server-side runtime.

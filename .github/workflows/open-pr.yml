@@ -37,10 +37,10 @@ jobs:
           branch=feature/football-volatility-analyzer
           pr_url=$(run_gh pr list --base main --head "$branch" --state open --json url --jq '.[0].url // empty')
           if [ -n "$pr_url" ]; then
-            run_gh pr edit "$pr_url" --body-file docs/PR_DESCRIPTION.md
+            run_gh pr edit "$pr_url" --title 'Add football volatility analyzer with an offline dashboard' --body-file docs/PR_DESCRIPTION.md
           else
             pr_url=$(run_gh pr create --base main --head "$branch" \
-              --title 'Add NFL and CFB historical volatility analyzer' \
+              --title 'Add football volatility analyzer with an offline dashboard' \
               --body-file docs/PR_DESCRIPTION.md)
           fi
           printf 'Pull request: %s\n' "$pr_url" >> "$GITHUB_STEP_SUMMARY"

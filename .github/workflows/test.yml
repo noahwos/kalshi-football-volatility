@@ -17,3 +17,16 @@ jobs:
           cache: pip
       - run: python -m pip install -e '.[dev]'
       - run: pytest -q
+      - name: Install browser test tools
+        if: matrix.python-version == '3.12'
+        run: |
+          python -m pip install -e '.[browser]'
+          python -m playwright install --with-deps chromium
+      - name: Exercise dashboard interactions
+        if: matrix.python-version == '3.12'
+        env:
+          OMP_NUM_THREADS: '2'
+          OPENBLAS_NUM_THREADS: '2'
+        run: |
+          python scripts/build_dashboard_fixture.py "$RUNNER_TEMP/fva-browser-fixture"
+          python scripts/check_dashboard_browser.py "$RUNNER_TEMP/fva-browser-fixture/dashboard.html"

@@ -25,7 +25,7 @@ gh pr list --repo noahwos/kalshi-football-volatility \
 # If no PR exists:
 gh pr create --repo noahwos/kalshi-football-volatility \
   --base main --head feature/football-volatility-analyzer \
-  --title 'Add NFL and CFB historical volatility analyzer' \
+  --title 'Add football volatility analyzer with an offline dashboard' \
   --body-file docs/PR_DESCRIPTION.md
 ```
 
